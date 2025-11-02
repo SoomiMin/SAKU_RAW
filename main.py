@@ -10,20 +10,6 @@ import discord
 import requests
 from bs4 import BeautifulSoup
 from discord.ext import commands
-from flask import Flask
-from threading import Thread
-
-# --- Keep Alive ---
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Saku_RAW está despierta 🌸"
-
-def keep_alive():
-    Thread(target=lambda: app.run(host='0.0.0.0', port=8080)).start()
-
-keep_alive()
 
 # --- Variables de entorno ---
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -97,7 +83,6 @@ def evento_j(soup):
             return f"{texto} {extra}".strip()
     return None
 
-
 # ============================================================
 # 🔍 FUNCIÓN GENERAL DE DETECCIÓN AUTOMÁTICA
 # ============================================================
@@ -112,7 +97,6 @@ def detectar_evento(url):
         html = r.text
         soup = BeautifulSoup(html, "html.parser")
 
-        # Intentamos cada evento
         for letra, func in [
             ("A", lambda: evento_a(soup)),
             ("B", lambda: evento_b(soup)),
@@ -134,10 +118,14 @@ def detectar_evento(url):
     except Exception as e:
         return None, str(e)
 
-
 # ============================================================
 # 🚀 COMANDO !raw
 # ============================================================
+
+@bot.event
+async def on_ready():
+    print(f"✨ Saku_RAW está en línea como {bot.user}")
+
 @bot.command()
 async def raw(ctx):
     if ctx.guild.id not in GUILD_IDS:
@@ -146,34 +134,30 @@ async def raw(ctx):
     await ctx.send("🔍 Buscando enlaces en los mensajes fijados...")
     pinned = await ctx.channel.pins()
 
-    encontrados = False  # 🌸 Saber si se encontró algún enlace de raws
+    encontrados = False
 
     for msg in pinned:
         urls = re.findall(r"https?://[^\s>]+", msg.content)
         for url in urls:
-            # --- Ignorar enlaces conocidos ---
             if any(x in url for x in [
                 "eternalmangas.org", "lectorjpg.com", "catharsisworld.dig-it.info", "drive.google.com"
             ]):
                 continue
 
-            encontrados = True  # ✅ Al menos un enlace válido encontrado
+            encontrados = True
 
-            # --- Detectar el texto encima del link ---
             lineas = msg.content.splitlines()
             texto_arriba = ""
             for i, linea in enumerate(lineas):
-                if url in linea:
-                    if i > 0:
-                        posible_texto = lineas[i-1].strip()
-                        if posible_texto:
-                            texto_arriba = posible_texto
+                if url in linea and i > 0:
+                    posible_texto = lineas[i - 1].strip()
+                    if posible_texto:
+                        texto_arriba = posible_texto
                     break
 
             dominio = re.search(r"https?://(?:www\.)?([^/]+)/", url)
             sitio = dominio.group(1) if dominio else "Sitio desconocido"
 
-            # --- Título con nombre y sitio ---
             titulo_embed = f"{texto_arriba} ({sitio.upper()})" if texto_arriba else f"{sitio.upper()}"
 
             cap, evento = detectar_evento(url)
@@ -182,23 +166,22 @@ async def raw(ctx):
                 embed = discord.Embed(
                     title=titulo_embed,
                     description=f"Último capítulo: {cap}",
-                    color=0x6AFF7A  # Verde suave
+                    color=0x6AFF7A
                 )
-                await ctx.send(embed=embed)
             else:
                 embed = discord.Embed(
                     title=titulo_embed,
                     description="❌ Estructura incompatible — Revisión manual requerida",
-                    color=0xFF5C5C  # Rojo pastel
+                    color=0xFF5C5C
                 )
-                await ctx.send(embed=embed)
 
-    # 🌸 Si no se encontró ningún enlace válido
+            await ctx.send(embed=embed)
+
     if not encontrados:
         embed = discord.Embed(
             title="🌸 Saku_RAW — *Sin enlaces válidos*",
             description="No se encontraron enlaces de raws en los mensajes fijados.\n",
-            color=0xF8C8DC  # Rosa sakura pastel
+            color=0xF8C8DC
         )
         embed.set_footer(text="Asegúrate de fijar mensajes con los enlaces correctos 💖")
         await ctx.send(embed=embed)
