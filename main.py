@@ -131,7 +131,7 @@ async def raw(ctx):
     if ctx.guild.id not in GUILD_IDS:
         return await ctx.send("❌ Este comando no está autorizado en este servidor.")
 
-    await ctx.send("🔍 Buscando enlaces en los mensajes fijados...")
+    await ctx.send("🔍 Buscando enlaces de RAW en los mensajes fijados...")
     pinned = await ctx.channel.pins()
 
     encontrados = False
