@@ -27,7 +27,7 @@ keep_alive()
 
 # --- Variables de entorno ---
 TOKEN = os.getenv("DISCORD_TOKEN")
-GUILD_ID = int(os.getenv("GUILD_ID"))
+GUILD_IDS = [int(x.strip()) for x in os.getenv("GUILD_IDS", "").split(",") if x.strip()]
 
 # --- Configuración del bot ---
 intents = discord.Intents.default()
@@ -138,47 +138,43 @@ def detectar_evento(url):
 # ============================================================
 # 🚀 COMANDO !raw
 # ============================================================
-
-@bot.event
-async def on_ready():
-    print(f"✨ Saku_RAW está en línea como {bot.user}")
-
 @bot.command()
 async def raw(ctx):
-    if ctx.guild.id != GUILD_ID:
+    if ctx.guild.id not in GUILD_IDS:
         return await ctx.send("❌ Este comando no está autorizado en este servidor.")
 
     await ctx.send("🔍 Buscando enlaces en los mensajes fijados...")
     pinned = await ctx.channel.pins()
 
+    encontrados = False  # 🌸 Saber si se encontró algún enlace de raws
+
     for msg in pinned:
         urls = re.findall(r"https?://[^\s>]+", msg.content)
         for url in urls:
+            # --- Ignorar enlaces conocidos ---
             if any(x in url for x in [
                 "eternalmangas.org", "lectorjpg.com", "catharsisworld.dig-it.info", "drive.google.com"
             ]):
                 continue
 
+            encontrados = True  # ✅ Al menos un enlace válido encontrado
+
             # --- Detectar el texto encima del link ---
-            # Buscamos la línea que contiene la URL en el mensaje
             lineas = msg.content.splitlines()
             texto_arriba = ""
             for i, linea in enumerate(lineas):
                 if url in linea:
                     if i > 0:
                         posible_texto = lineas[i-1].strip()
-                        if posible_texto:  # Solo si hay algo escrito encima
+                        if posible_texto:
                             texto_arriba = posible_texto
                     break
 
             dominio = re.search(r"https?://(?:www\.)?([^/]+)/", url)
             sitio = dominio.group(1) if dominio else "Sitio desconocido"
 
-            # --- Combinar texto y sitio ---
-            if texto_arriba:
-                titulo_embed = f"{texto_arriba} ({sitio.upper()})"
-            else:
-                titulo_embed = f"{sitio.upper()}"
+            # --- Título con nombre y sitio ---
+            titulo_embed = f"{texto_arriba} ({sitio.upper()})" if texto_arriba else f"{sitio.upper()}"
 
             cap, evento = detectar_evento(url)
 
@@ -186,18 +182,26 @@ async def raw(ctx):
                 embed = discord.Embed(
                     title=titulo_embed,
                     description=f"Último capítulo: {cap}",
-                    color=0x6AFF7A
+                    color=0x6AFF7A  # Verde suave
                 )
                 await ctx.send(embed=embed)
             else:
                 embed = discord.Embed(
                     title=titulo_embed,
-                     description="❌ Estructura incompatible — Revisión manual requerida",
-                     color=0xFF5C5C  # Rojo suave
+                    description="❌ Estructura incompatible — Revisión manual requerida",
+                    color=0xFF5C5C  # Rojo pastel
                 )
                 await ctx.send(embed=embed)
-#                print(f"❌ {sitio}: sin resultado ({evento})")
 
+    # 🌸 Si no se encontró ningún enlace válido
+    if not encontrados:
+        embed = discord.Embed(
+            title="🌸 Saku_RAW — *Sin enlaces válidos*",
+            description="No se encontraron enlaces de raws en los mensajes fijados.\n",
+            color=0xF8C8DC  # Rosa sakura pastel
+        )
+        embed.set_footer(text="Asegúrate de fijar mensajes con los enlaces correctos 💖")
+        await ctx.send(embed=embed)
 
 # ============================================================
 # 🩷 EJECUTAR BOT
